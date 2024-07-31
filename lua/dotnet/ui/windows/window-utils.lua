@@ -1,35 +1,40 @@
-local nvim_utils = require ('dotnet.utils.nvim-utils')
-local telescope_utils = require('telescope.previewers.utils')
-local ui_utils = require('dotnet.ui.ui-utils')
+local nvim_utils = require("dotnet.utils.nvim-utils")
+local telescope_utils = require("telescope.previewers.utils")
+local ui_utils = require("dotnet.ui.ui-utils")
 
-local M = { }
+local M = {}
 
 M.create_telescope_options = function()
 	return {
-		layout_strategy = 'vertical',
+		layout_strategy = "vertical",
 		layout_config = {
 			width = 0.3,
-		}
+		},
 	}
 end
-
 
 M.open_project_selection_window = function(selection_opts)
 	local result_filter = selection_opts.result_filter or function(_, _)
 		return true
 	end
-	local command_generator = selection_opts.command_generator or function(_)
-		return { 'fd', '-e', 'csproj', '--type', 'f' }
-	end
-	local entry_maker = selection_opts.entry_maker or function(entry)
-		if entry then
-			return {
-				value = entry,
-				display = entry,
-				ordinal = entry,
-			}
+	local command_generator = selection_opts.command_generator
+		or function(_)
+			return vim.tbl_extend(
+				"force",
+				{ "fd", "-e", "csproj", "--type", "f" },
+				{ "fd", "-e", "fsproj", "--type", "f" } or {}
+			)
 		end
-	end
+	local entry_maker = selection_opts.entry_maker
+		or function(entry)
+			if entry then
+				return {
+					value = entry,
+					display = entry,
+					ordinal = entry,
+				}
+			end
+		end
 	local opts = {
 		telescope = M.create_telescope_options(),
 		prompt_title = selection_opts.prompt_title or "Select Project",
@@ -38,7 +43,7 @@ M.open_project_selection_window = function(selection_opts)
 			define_preview = function(self, entry)
 				local path = entry.value
 				if path and entry.path_prefix then
-					path = entry.path_prefix .. '/' .. path
+					path = entry.path_prefix .. "/" .. path
 				end
 				local success, error = pcall(function()
 					nvim_utils.load_file_into_buffer(path, self.state.bufnr)
@@ -46,14 +51,18 @@ M.open_project_selection_window = function(selection_opts)
 				end)
 
 				if not success then
-					vim.api.nvim_buf_set_lines(self.state.bufnr, 0, 0, true, vim.tbl_flatten(
-						{
+					vim.api.nvim_buf_set_lines(
+						self.state.bufnr,
+						0,
+						0,
+						true,
+						vim.tbl_flatten({
 							"Error loading file: " .. entry.value,
-							error
-						}
-					))
+							error,
+						})
+					)
 				end
-			end
+			end,
 		},
 		finder = {
 			command_generator = function()
@@ -67,7 +76,7 @@ M.open_project_selection_window = function(selection_opts)
 						return prepared_entry
 					end
 				end
-			end
+			end,
 		},
 		attach_mappings = function(_, selection)
 			if selection_opts == nil or selection_opts.attach_mappings == nil then
@@ -75,11 +84,10 @@ M.open_project_selection_window = function(selection_opts)
 			end
 
 			return selection_opts.attach_mappings(selection_opts, selection)
-		end
+		end,
 	}
 
 	ui_utils.open_selection_window(opts)
 end
-
 
 return M
